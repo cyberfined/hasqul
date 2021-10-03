@@ -1,0 +1,64 @@
+name:          hasqul
+version:       0.1.0.0
+synopsis:      haskell ORM based on hasql
+description:   haskell ORM based on hasql
+homepage:      https://github.com/cyberfined/hasqul
+bug-reports:   https://github.com/cyberfined/hasqul/issues
+author:        cyberfined
+maintainer:    cyberfined@protonmail.com
+copyright:     Copyright (c) cyberfined
+license:       OtherLicense
+license-file:  LICENSE
+category:      Database
+build-type:    Simple
+cabal-version: >= 1.12
+extra-source-files:
+    LICENSE
+    README.md
+
+source-repository head
+  type:     git
+  location: https://github.com/cyberfined/hasqul
+
+library
+  exposed-modules:
+      Database.Hasqul
+  other-modules:
+      Database.Hasqul.Codec
+    , Database.Hasqul.DefaultInstances
+    , Database.Hasqul.GCodec
+    , Database.Hasqul.Key
+    , Database.Hasqul.Valuable
+  default-extensions:
+      DataKinds
+    , KindSignatures
+    , TypeApplications
+    , TypeFamilies
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-depends:
+      base >= 4.7 && < 5
+    , bytestring >= 0.10 && < 1
+    , contravariant >= 1.5 && < 2
+    , data-default-class >= 0.1 && < 1
+    , hasql >= 1.4 && < 2
+    , scientific >= 0.3 && < 1
+    , text >= 1.2 && < 2
+    , time >= 1.9 && < 2
+    , unordered-containers >= 0.2 && < 1
+    , uuid >= 1.3 && < 2
+  default-language: Haskell2010
+
+executable hasqul-exe
+  main-is: Main.hs
+  hs-source-dirs:
+      main
+  ghc-options: -Wall
+  build-depends:
+      base >= 4.7 && < 5
+    , bytestring >= 0.10 && < 1
+    , hasql >= 1.4 && < 2
+    , text >= 1.2 && < 2
+    , hasqul
+  default-language: Haskell2010
