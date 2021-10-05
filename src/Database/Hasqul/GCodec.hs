@@ -52,36 +52,37 @@ type family IsIdEncoded (settings :: [*]) :: Nullable where
     IsIdEncoded _               = 'DecNoEnc
 
 class GCodec grecord (null :: Nullable) where
-    gDecode :: Proxy null -> grecord p -> Dec.Row (grecord p)
-    gEncode :: Proxy null -> grecord p -> Enc.Params (grecord p)
+    gDecode :: Proxy null -> Proxy grecord -> Dec.Row grecord
+    gEncode :: Proxy null -> Proxy grecord -> Enc.Params grecord
 
-instance Valuable c => GCodec (K1 i (Maybe c)) 'Nullable where
+instance Valuable c => GCodec (K1 i (Maybe c) p) 'Nullable where
     gDecode _ _ = K1 <$> (Dec.column . Dec.nullable) (valueDec @c)
     gEncode _ _ = unK1 >$< (Enc.param . Enc.nullable) (valueEnc @c)
 
-instance Valuable c => GCodec (K1 i c) 'NonNullable where
+instance Valuable c => GCodec (K1 i c p) 'NonNullable where
     gDecode _ _ = K1 <$> (Dec.column . Dec.nonNullable) (valueDec @c)
     gEncode _ _ = unK1 >$< (Enc.param . Enc.nonNullable) (valueEnc @c)
 
-instance Default c => GCodec (K1 i c) 'NoEncDec where
+instance Default c => GCodec (K1 i c p) 'NoEncDec where
     gDecode _ _ = pure (K1 def)
     gEncode _ _ = const (()) >$< Enc.noParams
 
-instance Valuable c => GCodec (K1 i c) 'DecNoEnc where
+instance Valuable c => GCodec (K1 i c p) 'DecNoEnc where
     gDecode _ _ = K1 <$> (Dec.column . Dec.nonNullable) (valueDec @c)
     gEncode _ _ = const (()) >$< Enc.noParams
 
-instance (GCodec l lNull, GCodec r rNull) => GCodec (l :*: r) ('Prod lNull rNull) where
-    gDecode _ (l :*: r) =  (:*:)
-                       <$> gDecode (Proxy @lNull) l
-                       <*> gDecode (Proxy @rNull) r
-    gEncode _ (l :*: r) = divide (\(x :*: y) -> (x, y)) leftEnc rightEnc
-      where leftEnc = gEncode (Proxy @lNull) l
-            rightEnc = gEncode (Proxy @rNull) r
+instance (GCodec (l p) lNull, GCodec (r p) rNull)
+  => GCodec ((l :*: r) p) ('Prod lNull rNull) where
+    gDecode _ _  =  (:*:)
+                <$> gDecode (Proxy @lNull) (Proxy @(l p))
+                <*> gDecode (Proxy @rNull) (Proxy @(r p))
+    gEncode _ _ = divide (\(l :*: r) -> (l, r)) leftEnc rightEnc
+      where leftEnc = gEncode (Proxy @lNull) (Proxy @(l p))
+            rightEnc = gEncode (Proxy @rNull) (Proxy @(r p))
 
-instance GCodec x null => GCodec (M1 i t x) null where
-    gDecode prx (M1 x) = M1 <$> gDecode prx x
-    gEncode prx (M1 x) = unM1 >$< gEncode prx x
+instance GCodec (x p) null => GCodec (M1 i t x p) null where
+    gDecode prx _ = M1 <$> gDecode prx (Proxy @(x p))
+    gEncode prx _ = unM1 >$< gEncode prx (Proxy @(x p))
 
 -- Settings
 

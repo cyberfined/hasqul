@@ -5,7 +5,6 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TypeApplications   #-}
-{-# LANGUAGE DeriveAnyClass     #-}
 
 module Main (main) where
 
@@ -29,7 +28,6 @@ data Test = Test
     , testAuthor      :: !(Maybe Text)
     , testUnused      :: ![Int]
     } deriving stock (Generic, Show)
-      deriving anyclass (Default)
       deriving Codec via (Table '[IgnoreField "testUnused"] Test)
 
 dbSettings :: Settings
@@ -52,7 +50,7 @@ insertMode conn = do
     print $ test1 { testKey = tid1 }
     print $ test2 { testKey = tid2 }
   where insertTest :: Statement Test (Key Test)
-        insertTest = Statement sql (encode @Test) (singleRow $ decode @(Key Test)) False
+        insertTest = Statement sql (encode @Test) (decode @(Key Test)) False
           where sql = "INSERT INTO tests (age, description, author) \
                       \VALUES ($1, $2, $3) RETURNING id"
 
@@ -75,7 +73,7 @@ insertMode conn = do
 selectMode :: Connection -> IO ()
 selectMode conn = runSession conn getTests () >>= mapM_ print
   where getTests :: Statement () [Test]
-        getTests = Statement sql noParams (rowList $ decode @Test) False
+        getTests = Statement sql (encode @()) (decode @[Test]) False
         sql = "SELECT * FROM tests"
 
 parseArgs :: IO Mode
