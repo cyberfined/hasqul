@@ -1,18 +1,12 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Database.Hasqul.GCodec
     ( GCodec(..)
     , KnowNullable
-    , IgnoreField
-    , NoEncodeField
-    , EncodeId
     ) where
 
 import Database.Hasqul.Key
+import Database.Hasqul.Options
 import Database.Hasqul.Valuable
 import Data.Default.Class
 import Data.Functor.Contravariant           ((>$<))
@@ -32,15 +26,16 @@ data Nullable
     | Prod !Nullable !Nullable
 
 type family KnowNullable (grecord :: * -> *) (settings :: [*]) :: Nullable where
-    KnowNullable (K1 _ (Maybe c))                    _  = 'Nullable
-    KnowNullable (K1 _ c)                            _  = 'NonNullable
+    KnowNullable (K1 _ (Maybe _))                    _  = 'Nullable
+    KnowNullable (K1 _ _)                            _  = 'NonNullable
     KnowNullable (M1 S _ (K1 _ (Key c)))             xs = IsIdEncoded xs
     KnowNullable (M1 S ('MetaSel ('Just f) _ _ _) x) xs = IsIgnored f x xs
     KnowNullable (M1 _ _ x)                          xs = KnowNullable x xs
     KnowNullable (l :*: r)                           xs = 'Prod (KnowNullable l xs)
                                                                 (KnowNullable r xs)
 
-type family IsIgnored (x :: Symbol) (grecord :: * -> *) (settings :: [*]) :: Nullable where
+type family IsIgnored (x :: Symbol) (grecord :: * -> *) (settings :: [*]) :: Nullable
+  where
     IsIgnored f _ (IgnoreField f ': xs)   = 'NoEncDec
     IsIgnored f _ (NoEncodeField f ': xs) = 'DecNoEnc
     IsIgnored f x (_ ': xs)               = IsIgnored f x xs
@@ -83,14 +78,3 @@ instance (GCodec (l p) lNull, GCodec (r p) rNull)
 instance GCodec (x p) null => GCodec (M1 i t x p) null where
     gDecode prx _ = M1 <$> gDecode prx (Proxy @(x p))
     gEncode prx _ = unM1 >$< gEncode prx (Proxy @(x p))
-
--- Settings
-
--- Field is not encoded and decoded.  Default value is used on decoding
-data IgnoreField (a :: Symbol)
-
--- Field is not encoded, but decoding is performed
-data NoEncodeField (a :: Symbol)
-
--- Id by default is not encoded. If you want to insert with id, set this option
-data EncodeId

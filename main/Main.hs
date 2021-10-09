@@ -13,6 +13,7 @@ import Control.Monad             (when)
 import Data.Int                  (Int32)
 import Data.Text                 (Text)
 import Database.Hasqul
+import Database.Hasqul.Updater
 import Hasql.Connection
 import Hasql.Session      hiding (sql)
 import Hasql.Statement
@@ -30,31 +31,41 @@ data Test = Test
     } deriving stock (Generic, Show)
       deriving Codec via (Table '[IgnoreField "testUnused"] Test)
 
-dbSettings :: Settings
-dbSettings = settings "127.0.0.1" 5432 "user" "password" "dbname"
+data TestUpdate = TestUpdate
+    { updAge         :: !(Maybe Int32)
+    , updDescription :: !(Maybe Text)
+    , updAuthor      :: !(Maybe (Maybe Text))
+    } deriving stock Generic
+      deriving Updatable via (Updater '[TableName "tests", StripPrefix "upd"] TestUpdate)
 
-runSession :: Connection -> Statement params result -> params -> IO result
-runSession conn st params = do
-    run (statement params st) conn >>= \case
-        Left err  -> print err >> exitFailure
-        Right res -> pure res
+dbSettings :: Settings
+dbSettings = settings "192.168.0.102" 5432 "undefined" "password" "backenddb"
+
+runSession :: Connection -> Session result -> IO result
+runSession conn s = run s conn >>= \case
+    Left err  -> print err >> exitFailure
+    Right res -> pure res
+
+runStatement :: Connection -> Statement params result -> params -> IO result
+runStatement conn st params = runSession conn (statement params st)
 
 data Mode
     = InsertMode
     | SelectMode
+    | UpdateMode
+
+insertTest :: Statement Test (Key Test)
+insertTest = Statement sql (encode @Test) (decode @(Key Test)) False
+  where sql = "INSERT INTO tests (age, description, author) \
+              \VALUES ($1, $2, $3) RETURNING id"
 
 insertMode :: Connection -> IO ()
 insertMode conn = do
-    tid1 <- runSession conn insertTest test1
-    tid2 <- runSession conn insertTest test2
+    tid1 <- runStatement conn insertTest test1
+    tid2 <- runStatement conn insertTest test2
     print $ test1 { testKey = tid1 }
     print $ test2 { testKey = tid2 }
-  where insertTest :: Statement Test (Key Test)
-        insertTest = Statement sql (encode @Test) (decode @(Key Test)) False
-          where sql = "INSERT INTO tests (age, description, author) \
-                      \VALUES ($1, $2, $3) RETURNING id"
-
-        test1 :: Test
+  where test1 :: Test
         test1 = Test { testKey         = Key 0
                      , testAge         = 12
                      , testDescription = "fuck you"
@@ -71,10 +82,28 @@ insertMode conn = do
                      }
 
 selectMode :: Connection -> IO ()
-selectMode conn = runSession conn getTests () >>= mapM_ print
+selectMode conn = runStatement conn getTests () >>= mapM_ print
   where getTests :: Statement () [Test]
         getTests = Statement sql (encode @()) (decode @[Test]) False
         sql = "SELECT * FROM tests"
+
+updateMode :: Connection -> IO ()
+updateMode conn = runSession conn $ do
+    Key tid <- statement test insertTest
+    update (Key tid) tUpdate
+  where test :: Test
+        test = Test { testKey         = Key 0
+                    , testAge         = 12
+                    , testDescription = "Big surprise"
+                    , testAuthor      = Just "Billy Herrington"
+                    , testUnused      = []
+                    }
+
+        tUpdate :: TestUpdate
+        tUpdate = TestUpdate { updAge         = Just 15
+                             , updDescription = Nothing
+                             , updAuthor      = Just Nothing
+                             }
 
 parseArgs :: IO Mode
 parseArgs = do
@@ -83,6 +112,7 @@ parseArgs = do
     case args of
         ["select"] -> pure SelectMode
         ["insert"] -> pure InsertMode
+        ["update"] -> pure UpdateMode
         _          -> printHelp
   where printHelp = do
             prog <- getProgName
@@ -90,6 +120,7 @@ parseArgs = do
                             , "mode can be one of:\n"
                             , "select\trun program in select mode\n"
                             , "insert\trun program in insert mode\n"
+                            , "update\trun program in update mode\n"
                             ]
             exitFailure
 
@@ -101,6 +132,7 @@ main = do
         Right conn -> case mode of
             SelectMode -> selectMode conn
             InsertMode -> insertMode conn
+            UpdateMode -> updateMode conn
   where releaseConn = either (const $ pure ()) release
         acquireConn = acquire dbSettings
         showConnErr = \case
