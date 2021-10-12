@@ -60,11 +60,11 @@ instance Valuable c => GCodec (K1 i c p) 'NonNullable where
 
 instance Default c => GCodec (K1 i c p) 'NoEncDec where
     gDecode _ _ = pure (K1 def)
-    gEncode _ _ = const (()) >$< Enc.noParams
+    gEncode _ _ = const () >$< Enc.noParams
 
 instance Valuable c => GCodec (K1 i c p) 'DecNoEnc where
     gDecode _ _ = K1 <$> (Dec.column . Dec.nonNullable) (valueDec @c)
-    gEncode _ _ = const (()) >$< Enc.noParams
+    gEncode _ _ = const () >$< Enc.noParams
 
 instance (GCodec (l p) lNull, GCodec (r p) rNull)
   => GCodec ((l :*: r) p) ('Prod lNull rNull) where

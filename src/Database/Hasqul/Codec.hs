@@ -29,10 +29,10 @@ class Codec c where
 
 instance (Generic a, GCodec (Rep a p) (KnowNullable (Rep a) xs))
   => Codec (Table xs a) where
-    decodeRow = fmap to $ gDecode nullPrx repPrx
+    decodeRow = to <$> gDecode nullPrx repPrx
       where nullPrx = Proxy @(KnowNullable (Rep a) xs)
             repPrx = Proxy @(Rep a p)
-    encode = from >$< (gEncode nullPrx repPrx)
+    encode = from >$< gEncode nullPrx repPrx
       where nullPrx = Proxy @(KnowNullable (Rep a) xs)
             repPrx = Proxy @(Rep a p)
 

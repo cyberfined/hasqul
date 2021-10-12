@@ -113,7 +113,7 @@ instance (Selector s, Valuable x) =>
 instance (Selector s, Valuable x) => GUpdatable (M1 S s (K1 i x)) 'Always where
     gUpdateInfo sets _ meta = UpdateInfo "" [field] enc
       where field = convertField sets $ BS.pack $ selName meta
-            enc = unK1 . unM1 >$< (param $ nonNullable $ valueEnc @x)
+            enc = unK1 . unM1 >$< param (nonNullable $ valueEnc @x)
 
 instance GUpdatable (M1 S s (K1 i x)) 'Ignored where
     gUpdateInfo _ _ _ = UpdateInfo "" [] $ const () >$< noParams
@@ -225,4 +225,4 @@ toCase fcase string
           | otherwise     = before <> after'
           where (before, after) = BS.span (\x -> isLower x || x == '_') str
                 prefix = BS.pack ['_', toLower $ BS.head after]
-                after' = prefix <> (toSnakeCase $ BS.tail after)
+                after' = prefix <> toSnakeCase (BS.tail after)

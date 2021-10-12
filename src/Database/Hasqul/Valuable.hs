@@ -96,7 +96,7 @@ instance (Show a, Bounded a, Enum a) => Valuable (TextEnum a) where
     valueDec = Dec.enum (flip HashMap.lookup inverseMap)
       where inverseMap = HashMap.fromList $ map (toMap . toEnum) [minInt..maxInt]
             toMap :: a -> (Text, TextEnum a)
-            toMap x = (Text.pack $ show $ x, TextEnum x)
+            toMap x = (Text.pack $ show x, TextEnum x)
             minInt = fromEnum (minBound @a)
             maxInt = fromEnum (maxBound @a)
     valueEnc = Enc.enum (Text.pack . show . unTextEnum)
