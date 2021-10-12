@@ -43,6 +43,10 @@ instance Codec (Key a) where
     decodeRow = (Dec.column . Dec.nonNullable) (valueDec @(Key a))
     encode    = (Enc.param . Enc.nonNullable) (valueEnc @(Key a))
 
+instance Valuable a => Codec (Maybe a) where
+    decodeRow = (Dec.column . Dec.nullable) (valueDec @a)
+    encode    = (Enc.param . Enc.nullable) (valueEnc @a)
+
 instance Codec () where
     decodeRow = pure ()
     encode    = Enc.noParams
