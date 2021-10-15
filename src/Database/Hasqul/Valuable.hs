@@ -3,8 +3,8 @@
 
 module Database.Hasqul.Valuable
     ( Valuable(..)
-    , TextEnum
-    , IntEnum
+    , TextEnum(..)
+    , IntEnum(..)
     ) where
 
 import Data.Functor.Contravariant (contramap)
