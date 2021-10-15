@@ -29,7 +29,7 @@ data Test = Test
     , testAuthor      :: !(Maybe Text)
     , testUnused      :: ![Int]
     } deriving stock (Generic, Show)
-      deriving Codec via (Table '[IgnoreField "testUnused"] Test)
+      deriving Codec via (Encoder '[IgnoreField "testUnused"] Test)
 
 data TestUpdate = TestUpdate
     { updAge         :: !(Maybe Int32)
