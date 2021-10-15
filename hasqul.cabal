@@ -43,7 +43,8 @@ library
       src
   ghc-options: -Wall
   build-depends:
-      base >= 4.7 && < 5
+      aeson >= 1.5 && < 2
+    , base >= 4.7 && < 5
     , bytestring >= 0.10 && < 1
     , bytestring-strict-builder >= 0.4 && < 1
     , contravariant >= 1.5 && < 2
