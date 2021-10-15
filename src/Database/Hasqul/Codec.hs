@@ -19,7 +19,6 @@ import Data.UUID                  (UUID)
 import Data.Vector                (Vector)
 import Database.Hasqul.GCodec
 import Database.Hasqul.Key
-import Database.Hasqul.Valuable
 import GHC.Generics
 
 import qualified Hasql.Decoders as Dec
@@ -44,10 +43,6 @@ instance (Generic a, GCodec (Rep a p) (KnowNullable (Rep a) xs))
 
 -- Encoder is used for deriving Codec with deriving via mechanism
 newtype Encoder (a :: [*]) b = Encoder { unEncoder :: b }
-
-instance Valuable a => Codec (Maybe a) where
-    decodeRow = (Dec.column . Dec.nullable) (valueDec @a)
-    encode    = (Enc.param . Enc.nullable) (valueEnc @a)
 
 instance Codec (Key a) where
     decodeRow = (Dec.column . Dec.nonNullable) (Key <$> Dec.int8)
@@ -182,10 +177,11 @@ instance ( UnEncoder a ~ a, Codec a
               <> ((\(_,_,_,_,e,_) -> e) >$< encode @e)
               <> ((\(_,_,_,_,_,f) -> f) >$< encode @f)
 
-type family IsSingle (a :: *) :: Bool where
-    IsSingle [a]        = 'False
-    IsSingle (Vector a) = 'False
-    IsSingle _          = 'True
+type family IsSimple (a :: *) :: Bool where
+    IsSimple [a]        = 'False
+    IsSimple (Vector a) = 'False
+    IsSimple (Maybe a)  = 'False
+    IsSimple _          = 'True
 
 class DecodeFromRow a (b :: Bool) where
     decode' :: Proxy b -> Dec.Result a
@@ -199,5 +195,8 @@ instance (UnEncoder a ~ a, Codec a) => DecodeFromRow [a] 'False where
 instance (UnEncoder a ~ a, Codec a) => DecodeFromRow (Vector a) 'False where
     decode' _ = Dec.rowVector $ decodeRow @a
 
-decode :: forall a. (UnEncoder a ~ a, DecodeFromRow a (IsSingle a)) => Dec.Result a
-decode = decode' (Proxy @(IsSingle a))
+instance (UnEncoder a ~ a, Codec a) => DecodeFromRow (Maybe a) 'False where
+    decode' _ = Dec.rowMaybe $ decodeRow @a
+
+decode :: forall a. (UnEncoder a ~ a, DecodeFromRow a (IsSimple a)) => Dec.Result a
+decode = decode' (Proxy @(IsSimple a))
