@@ -1,10 +1,13 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE DerivingVia          #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Database.Hasqul.Codec
     ( Codec(..)
     , Encoder(..)
+    , ValueCodec(..)
     , decode
     ) where
 
@@ -19,6 +22,7 @@ import Data.UUID                  (UUID)
 import Data.Vector                (Vector)
 import Database.Hasqul.GCodec
 import Database.Hasqul.Key
+import Database.Hasqul.Valuable
 import GHC.Generics
 
 import qualified Hasql.Decoders as Dec
@@ -26,7 +30,11 @@ import qualified Hasql.Encoders as Enc
 
 type family UnEncoder (c :: *) :: * where
     UnEncoder (Encoder xs c) = c
-    UnEncoder c            = c
+    UnEncoder (ValueCodec c) = c
+    UnEncoder c              = c
+
+-- Encoder is used for deriving Codec with deriving via mechanism
+newtype Encoder (a :: [*]) b = Encoder { unEncoder :: b }
 
 class Codec c where
     decodeRow :: Dec.Row (UnEncoder c)
@@ -41,76 +49,29 @@ instance (Generic a, GCodec (Rep a p) (KnowNullable (Rep a) xs))
       where nullPrx = Proxy @(KnowNullable (Rep a) xs)
             repPrx = Proxy @(Rep a p)
 
--- Encoder is used for deriving Codec with deriving via mechanism
-newtype Encoder (a :: [*]) b = Encoder { unEncoder :: b }
+newtype ValueCodec a = ValueCodec { unValueCodec :: a }
 
-instance Codec (Key a) where
-    decodeRow = (Dec.column . Dec.nonNullable) (Key <$> Dec.int8)
-    encode    = (Enc.param . Enc.nonNullable) (unKey >$< Enc.int8)
+instance Valuable a => Codec (ValueCodec a) where
+    decodeRow = (Dec.column . Dec.nonNullable) (valueDec @a)
+    encode    = (Enc.param . Enc.nonNullable) (valueEnc @a)
 
-instance Codec Bool where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.bool
-    encode    = (Enc.param . Enc.nonNullable) Enc.bool
-
-instance Codec Int16 where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.int2
-    encode    = (Enc.param . Enc.nonNullable) Enc.int2
-
-instance Codec Int32 where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.int4
-    encode    = (Enc.param . Enc.nonNullable) Enc.int4
-
-instance Codec Int64 where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.int8
-    encode    = (Enc.param . Enc.nonNullable) Enc.int8
-
-instance Codec Float where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.float4
-    encode    = (Enc.param . Enc.nonNullable) Enc.float4
-
-instance Codec Double where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.float8
-    encode    = (Enc.param . Enc.nonNullable) Enc.float8
-
-instance Codec Scientific where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.numeric
-    encode    = (Enc.param . Enc.nonNullable) Enc.numeric
-
-instance Codec Char where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.char
-    encode    = (Enc.param . Enc.nonNullable) Enc.char
-
-instance Codec Text where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.text
-    encode    = (Enc.param . Enc.nonNullable) Enc.text
-
-instance Codec ByteString where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.bytea
-    encode    = (Enc.param . Enc.nonNullable) Enc.bytea
-
-instance Codec Day where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.date
-    encode    = (Enc.param . Enc.nonNullable) Enc.date
-
-instance Codec LocalTime where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.timestamp
-    encode    = (Enc.param . Enc.nonNullable) Enc.timestamp
-
-instance Codec UTCTime where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.timestamptz
-    encode    = (Enc.param . Enc.nonNullable) Enc.timestamptz
-
-instance Codec TimeOfDay where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.time
-    encode    = (Enc.param . Enc.nonNullable) Enc.time
-
-instance Codec DiffTime where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.interval
-    encode    = (Enc.param . Enc.nonNullable) Enc.interval
-
-instance Codec UUID where
-    decodeRow = (Dec.column . Dec.nonNullable) Dec.uuid
-    encode    = (Enc.param . Enc.nonNullable) Enc.uuid
+deriving via ValueCodec (Key a) instance Codec (Key a)
+deriving via ValueCodec Bool instance Codec Bool
+deriving via ValueCodec Int16 instance Codec Int16
+deriving via ValueCodec Int32 instance Codec Int32
+deriving via ValueCodec Int64 instance Codec Int64
+deriving via ValueCodec Float instance Codec Float
+deriving via ValueCodec Double instance Codec Double
+deriving via ValueCodec Scientific instance Codec Scientific
+deriving via ValueCodec Char instance Codec Char
+deriving via ValueCodec Text instance Codec Text
+deriving via ValueCodec ByteString instance Codec ByteString
+deriving via ValueCodec Day instance Codec Day
+deriving via ValueCodec LocalTime instance Codec LocalTime
+deriving via ValueCodec UTCTime instance Codec UTCTime
+deriving via ValueCodec TimeOfDay instance Codec TimeOfDay
+deriving via ValueCodec DiffTime instance Codec DiffTime
+deriving via ValueCodec UUID instance Codec UUID
 
 instance Codec () where
     decodeRow = pure ()
