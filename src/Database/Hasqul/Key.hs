@@ -4,6 +4,7 @@
 
 module Database.Hasqul.Key
     ( Key(..)
+    , coerceKey
     ) where
 
 import Data.Aeson
@@ -16,3 +17,6 @@ import GHC.Generics
 newtype Key a = Key { unKey :: Int64 }
     deriving stock (Generic, Show, Eq, Ord)
     deriving newtype (Valuable, Default, FromJSON, ToJSON)
+
+coerceKey :: Key a -> Key b
+coerceKey (Key a) = Key a
