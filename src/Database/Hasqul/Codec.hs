@@ -74,6 +74,14 @@ deriving via ValueCodec TimeOfDay instance Codec TimeOfDay
 deriving via ValueCodec DiffTime instance Codec DiffTime
 deriving via ValueCodec UUID instance Codec UUID
 
+instance Valuable a => Codec [a] where
+    decodeRow = (Dec.column . Dec.nonNullable) (valueDec @[a])
+    encode = (Enc.param . Enc.nonNullable) (valueEnc @[a])
+
+instance Valuable a => Codec (Vector a) where
+    decodeRow = (Dec.column . Dec.nonNullable) (valueDec @(Vector a))
+    encode = (Enc.param . Enc.nonNullable) (valueEnc @(Vector a))
+
 instance Codec () where
     decodeRow = pure ()
     encode    = Enc.noParams

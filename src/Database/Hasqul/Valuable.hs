@@ -10,9 +10,10 @@ module Database.Hasqul.Valuable
 import Data.Functor.Contravariant (contramap)
 import Data.Int                   (Int64, Int32, Int16)
 import Data.ByteString            (ByteString)
+import Data.Scientific            (Scientific)
 import Data.Text                  (Text)
 import Data.Time                  (Day, LocalTime, UTCTime, TimeOfDay, DiffTime)
-import Data.Scientific            (Scientific)
+import Data.Vector                (Vector)
 import Data.UUID                  (UUID)
 
 import qualified Data.HashMap.Strict as HashMap
@@ -87,6 +88,14 @@ instance Valuable DiffTime where
 instance Valuable UUID where
     valueDec = Dec.uuid
     valueEnc = Enc.uuid
+
+instance Valuable a => Valuable [a] where
+    valueDec = Dec.listArray (Dec.nonNullable $ valueDec @a)
+    valueEnc = Enc.foldableArray (Enc.nonNullable $ valueEnc @a)
+
+instance Valuable a => Valuable (Vector a) where
+    valueDec = Dec.vectorArray (Dec.nonNullable $ valueDec @a)
+    valueEnc = Enc.foldableArray (Enc.nonNullable $ valueEnc @a)
 
 -- TextEnum is used for deriving Valuable with deriving via mechanism
 -- for text represented enums
