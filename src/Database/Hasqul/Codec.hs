@@ -14,6 +14,7 @@ module Database.Hasqul.Codec
 import Data.ByteString            (ByteString)
 import Data.Functor.Contravariant
 import Data.Int                   (Int64, Int32, Int16)
+import Data.Kind
 import Data.Proxy
 import Data.Text                  (Text)
 import Data.Time                  (Day, LocalTime, UTCTime, TimeOfDay, DiffTime)
@@ -28,13 +29,13 @@ import GHC.Generics
 import qualified Hasql.Decoders as Dec
 import qualified Hasql.Encoders as Enc
 
-type family UnEncoder (c :: *) :: * where
+type family UnEncoder (c :: Type) :: Type where
     UnEncoder (Encoder xs c) = c
     UnEncoder (ValueCodec c) = c
     UnEncoder c              = c
 
 -- Encoder is used for deriving Codec with deriving via mechanism
-newtype Encoder (a :: [*]) b = Encoder { unEncoder :: b }
+newtype Encoder (a :: [Type]) b = Encoder { unEncoder :: b }
 
 class Codec c where
     decodeRow :: Dec.Row (UnEncoder c)
@@ -138,7 +139,7 @@ instance ( UnEncoder a ~ a, Codec a
               <> ((\(_,_,_,_,e,_) -> e) >$< encode @e)
               <> ((\(_,_,_,_,_,f) -> f) >$< encode @f)
 
-type family IsSimple (a :: *) :: Bool where
+type family IsSimple (a :: Type) :: Bool where
     IsSimple [a]        = 'False
     IsSimple (Vector a) = 'False
     IsSimple (Maybe a)  = 'False

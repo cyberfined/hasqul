@@ -11,6 +11,7 @@ import Database.Hasqul.Valuable
 import Data.Default.Class
 import Data.Functor.Contravariant           ((>$<))
 import Data.Functor.Contravariant.Divisible (divide)
+import Data.Kind
 import Data.Proxy                           (Proxy(..))
 import GHC.Generics
 import GHC.TypeLits
@@ -25,7 +26,7 @@ data Nullable
     | DecNoEnc
     | Prod !Nullable !Nullable
 
-type family KnowNullable (grecord :: * -> *) (settings :: [*]) :: Nullable where
+type family KnowNullable (grecord :: Type -> Type) (settings :: [Type]) :: Nullable where
     KnowNullable (K1 _ (Maybe _))                    _  = 'Nullable
     KnowNullable (K1 _ _)                            _  = 'NonNullable
     KnowNullable (M1 S _ (K1 _ (Key c)))             xs = IsIdEncoded xs
@@ -34,14 +35,14 @@ type family KnowNullable (grecord :: * -> *) (settings :: [*]) :: Nullable where
     KnowNullable (l :*: r)                           xs = 'Prod (KnowNullable l xs)
                                                                 (KnowNullable r xs)
 
-type family IsIgnored (x :: Symbol) (grecord :: * -> *) (settings :: [*]) :: Nullable
-  where
+type family IsIgnored (x :: Symbol) (grecord :: Type -> Type) (settings :: [Type])
+    :: Nullable where
     IsIgnored f _ (IgnoreField f ': xs)   = 'NoEncDec
     IsIgnored f _ (NoEncodeField f ': xs) = 'DecNoEnc
     IsIgnored f x (_ ': xs)               = IsIgnored f x xs
     IsIgnored _ x xs                      = KnowNullable x xs
 
-type family IsIdEncoded (settings :: [*]) :: Nullable where
+type family IsIdEncoded (settings :: [Type]) :: Nullable where
     IsIdEncoded (EncodeId ': _) = 'NonNullable
     IsIdEncoded (_ ': xs)       = IsIdEncoded xs
     IsIdEncoded _               = 'DecNoEnc

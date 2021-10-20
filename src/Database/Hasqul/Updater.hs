@@ -17,6 +17,7 @@ import ByteString.StrictBuilder
 import Data.Char
 import Data.Functor.Contravariant           ((>$<))
 import Data.Functor.Contravariant.Divisible (choose, divide)
+import Data.Kind
 import Data.List                            (foldl')
 import Data.Maybe                           (fromMaybe, isNothing)
 import Data.Proxy
@@ -33,7 +34,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Hasql.Session         as Session
 import qualified Hasql.Transaction     as Transaction
 
-newtype Updater (a :: [*]) b = Updater { unUpdater :: b }
+newtype Updater (a :: [Type]) b = Updater { unUpdater :: b }
 
 class FromStatement a b where
     update :: Key a -> a -> b ()
@@ -66,7 +67,8 @@ data UpdateType
     | Ignored
     | Prod !UpdateType !UpdateType
 
-type family KnowUpdateType (grecord :: * -> *) (settings :: [*]) :: UpdateType where
+type family KnowUpdateType (grecord :: Type -> Type) (settings :: [Type]) :: UpdateType
+  where
     KnowUpdateType (K1 _ (Maybe (Maybe _)))            _  = 'Nullable
     KnowUpdateType (K1 _ (Maybe _))                    _  = 'NonNullable
     KnowUpdateType (K1 _ _)                            _  = 'Always
@@ -75,8 +77,8 @@ type family KnowUpdateType (grecord :: * -> *) (settings :: [*]) :: UpdateType w
     KnowUpdateType (l :*: r)                           xs = 'Prod (KnowUpdateType l xs)
                                                                   (KnowUpdateType r xs)
 
-type family IsIgnored (x :: Symbol) (grecord :: * -> *) (settings :: [*]) :: UpdateType
-  where
+type family IsIgnored (x :: Symbol) (grecord :: Type -> Type) (settings :: [Type])
+    :: UpdateType where
     IsIgnored f _ (IgnoreField f ': xs) = 'Ignored
     IsIgnored f x (_ ': xs)             = IsIgnored f x xs
     IsIgnored _ x xs                    = KnowUpdateType x xs
@@ -160,7 +162,7 @@ statement upd
           | otherwise = (var + 1, q <> ", " <> updQ)
           where updQ = bytes col <> " = $" <> asciiIntegral var
 
-class ToSettings (xs :: [*]) where
+class ToSettings (xs :: [Type]) where
     toSettings :: Proxy xs -> Settings
 
 instance (KnownSymbol t, ToSettings xs) => ToSettings (TableName t ': xs) where
