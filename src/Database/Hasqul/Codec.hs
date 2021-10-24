@@ -41,13 +41,13 @@ class Codec c where
     decodeRow :: Dec.Row (UnEncoder c)
     encode    :: Enc.Params (UnEncoder c)
 
-instance (Generic a, GCodec (Rep a p) (KnowNullable (Rep a) xs))
+instance (Generic a, GCodec (Rep a p) (KnowNullable (Rep a) (IdType a ': xs)))
   => Codec (Encoder xs a) where
     decodeRow = to <$> gDecode nullPrx repPrx
-      where nullPrx = Proxy @(KnowNullable (Rep a) xs)
+      where nullPrx = Proxy @(KnowNullable (Rep a) (IdType a ': xs))
             repPrx = Proxy @(Rep a p)
     encode = from >$< gEncode nullPrx repPrx
-      where nullPrx = Proxy @(KnowNullable (Rep a) xs)
+      where nullPrx = Proxy @(KnowNullable (Rep a) (IdType a ': xs))
             repPrx = Proxy @(Rep a p)
 
 newtype ValueCodec a = ValueCodec { unValueCodec :: a }

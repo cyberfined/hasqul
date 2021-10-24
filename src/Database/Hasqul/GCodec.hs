@@ -1,8 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Database.Hasqul.GCodec
     ( GCodec(..)
     , KnowNullable
+    , IdType
     ) where
 
 import Database.Hasqul.Key
@@ -26,14 +28,26 @@ data Nullable
     | DecNoEnc
     | Prod !Nullable !Nullable
 
+
 type family KnowNullable (grecord :: Type -> Type) (settings :: [Type]) :: Nullable where
-    KnowNullable (K1 _ (Maybe _))                    _  = 'Nullable
-    KnowNullable (K1 _ _)                            _  = 'NonNullable
-    KnowNullable (M1 S _ (K1 _ (Key c)))             xs = IsIdEncoded xs
-    KnowNullable (M1 S ('MetaSel ('Just f) _ _ _) x) xs = IsIgnored f x xs
-    KnowNullable (M1 _ _ x)                          xs = KnowNullable x xs
-    KnowNullable (l :*: r)                           xs = 'Prod (KnowNullable l xs)
-                                                                (KnowNullable r xs)
+    KnowNullable rec xs = Fst (KnowNullableSettings rec xs)
+
+type family KnowNullableSettings (grecord :: Type -> Type) (settings :: [Type])
+    :: (Nullable, [Type]) where
+    KnowNullableSettings (K1 _ (Maybe _)) xs = '( 'Nullable, xs)
+    KnowNullableSettings (K1 _ _)         xs = '( 'NonNullable, xs)
+    KnowNullableSettings (M1 S _ (K1 _ (Key k))) xs = IsIdEncoded k xs
+    KnowNullableSettings (M1 S ('MetaSel ('Just f) _ _ _) x) xs = '( IsIgnored f x xs, xs)
+    KnowNullableSettings (M1 _ _ x) xs = KnowNullableSettings x xs
+    KnowNullableSettings (l :*: r) xs = KnowNullableProd (KnowNullableSettings l xs) r
+
+type family KnowNullableProd (xs :: (Nullable, [Type])) (grecord :: Type -> Type)
+    :: (Nullable, [Type]) where
+    KnowNullableProd '(n, xs) r = ConsProd n (KnowNullableSettings r xs)
+
+type family ConsProd (n :: Nullable) (xs :: (Nullable, [Type]))
+    :: (Nullable, [Type]) where
+    ConsProd l '(r, xs) = '( 'Prod l r, xs)
 
 type family IsIgnored (x :: Symbol) (grecord :: Type -> Type) (settings :: [Type])
     :: Nullable where
@@ -42,10 +56,25 @@ type family IsIgnored (x :: Symbol) (grecord :: Type -> Type) (settings :: [Type
     IsIgnored f x (_ ': xs)               = IsIgnored f x xs
     IsIgnored _ x xs                      = KnowNullable x xs
 
-type family IsIdEncoded (settings :: [Type]) :: Nullable where
-    IsIdEncoded (EncodeId ': _) = 'NonNullable
-    IsIdEncoded (_ ': xs)       = IsIdEncoded xs
-    IsIdEncoded _               = 'DecNoEnc
+type family IsIdEncoded (k :: Type) (settings :: [Type]) :: (Nullable, [Type]) where
+    IsIdEncoded _ (EncodeId ': xs) = '( 'NonNullable, EncodeId ': xs)
+    IsIdEncoded k (IdType k ': xs) = '(HasEncodeId xs, xs)
+    IsIdEncoded k (x ': xs)        = InsertSettings x (IsIdEncoded k xs)
+    IsIdEncoded _ _                = '( 'NonNullable, '[])
+
+type family HasEncodeId (settings :: [Type]) :: Nullable where
+    HasEncodeId (EncodeId ': _) = 'NonNullable
+    HasEncodeId (_ ': xs)       = HasEncodeId xs
+    HasEncodeId _               = 'DecNoEnc
+
+type family Fst (tuple :: (Nullable, [Type])) :: Nullable where
+    Fst '(x, _) = x
+
+type family InsertSettings (x :: Type) (xs :: (Nullable, [Type]))
+    :: (Nullable, [Type]) where
+    InsertSettings x '(n, xs) = '(n, x ': xs)
+
+data IdType a
 
 class GCodec grecord (null :: Nullable) where
     gDecode :: Proxy null -> Proxy grecord -> Dec.Row grecord
