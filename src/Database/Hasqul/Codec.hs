@@ -149,6 +149,7 @@ instance ( UnEncoder a ~ a, Codec a
 
 type family IsSimple (a :: Type) :: Bool where
     IsSimple [a]        = 'False
+    IsSimple ()         = 'False
     IsSimple (Vector a) = 'False
     IsSimple (Maybe a)  = 'False
     IsSimple _          = 'True
@@ -158,6 +159,9 @@ class DecodeFromRow a (b :: Bool) where
 
 instance (UnEncoder a ~ a, Codec a) => DecodeFromRow a 'True where
     decode' _ = Dec.singleRow $ decodeRow @a
+
+instance DecodeFromRow () 'False where
+    decode' _ = Dec.noResult
 
 instance (UnEncoder a ~ a, Codec a) => DecodeFromRow [a] 'False where
     decode' _ = Dec.rowList $ decodeRow @a
